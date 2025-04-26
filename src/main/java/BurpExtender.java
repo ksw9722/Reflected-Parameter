@@ -11,6 +11,8 @@ import javax.swing.JScrollPane;
 import javax.swing.JSplitPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTable;
+import javax.swing.table.TableRowSorter;
+import javax.swing.table.DefaultTableModel;
 import javax.swing.SwingUtilities;
 import javax.swing.table.AbstractTableModel;
 import javax.swing.table.*;
@@ -277,7 +279,7 @@ public class BurpExtender extends AbstractTableModel implements IBurpExtender, I
                     {  
                         IResponseInfo responseInfo = helpers.analyzeResponse(messageInfo.getResponse());
                         List<String> headers = responseInfo.getHeaders();
-                        String contentType = null;
+                        String contentType = "";
                         for (String header : headers) {
                             if (header.toLowerCase().startsWith("content-type:")) {
                                 contentType = header.substring("Content-Type:".length()).trim();
@@ -286,8 +288,14 @@ public class BurpExtender extends AbstractTableModel implements IBurpExtender, I
                         }
 
                         int row = reflectedEntryList.size();
-                        reflectedEntryList.add(new ReflectedEntry(messageInfoMarked, helpers.analyzeRequest(messageInfo).getUrl(), helpers.analyzeRequest(messageInfo).getMethod(), parameters, callbacks.getToolName(toolFlag),contentType));
-                        fireTableRowsInserted(row, row);
+                        if(contentType==""){
+                            return;
+                        }
+
+                        if(!contentType.contains("json")) {
+                            reflectedEntryList.add(new ReflectedEntry(messageInfoMarked, helpers.analyzeRequest(messageInfo).getUrl(), helpers.analyzeRequest(messageInfo).getMethod(), parameters, callbacks.getToolName(toolFlag), contentType));
+                            fireTableRowsInserted(row, row);
+                        }
                     }
                 }
             }
@@ -393,9 +401,13 @@ public class BurpExtender extends AbstractTableModel implements IBurpExtender, I
     
     private class ReflectedTable extends JTable implements ActionListener
     {
+
         public ReflectedTable(TableModel tableModel)
         {
             super(tableModel);
+            TableRowSorter<TableModel> sorter = new TableRowSorter<>(tableModel);
+            this.setRowSorter(sorter);
+
         }
         
         @Override
@@ -475,8 +487,9 @@ public class BurpExtender extends AbstractTableModel implements IBurpExtender, I
         @Override
         public void changeSelection(int row, int col, boolean toggle, boolean extend)
         {
+            int modelRow = this.convertRowIndexToModel(row);
             // Reloading the Request/Response tabs
-            ReflectedEntry reflectedEntry = reflectedEntryList.get(row);
+            ReflectedEntry reflectedEntry = reflectedEntryList.get(modelRow);
             requestViewer.setMessage(reflectedEntry.requestResponse.getRequest(), true);
             responseViewer.setMessage(reflectedEntry.requestResponse.getResponse(), false);
             currentlyDisplayedItem = reflectedEntry.requestResponse;
@@ -547,7 +560,10 @@ public class BurpExtender extends AbstractTableModel implements IBurpExtender, I
         
         public ParametersTable(TableModel tableModel)
         {
+
             super(tableModel);
+            //TableRowSorter<DefaultTableModel> sorter = new TableRowSorter<>(tableModel);
+            //this.setRowSorter(sorter);
             
             // Creating popup menu
             popupMenu = new JPopupMenu();
